@@ -1,0 +1,5 @@
+[project]
+name = "book-coach-rag"
+version = "0.1.0"
+description = "Minimal PDF RAG + Streamlit book coach"
+requires-python = ">=3.10"

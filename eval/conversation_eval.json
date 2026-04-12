@@ -1,0 +1,92 @@
+[
+  {
+    "id": "conv_estimation_followup",
+    "gold_pages": [223, 224, 225, 226, 227],
+    "messages": [
+      {
+        "role": "user",
+        "content": "I'm prepping for PM interviews this month."
+      },
+      {
+        "role": "assistant",
+        "content": "Nice—most guides cover product sense, behavioral stories, and estimation drills. Pick one weakness to stress-test first."
+      },
+      {
+        "role": "user",
+        "content": "How should I tackle that last part?"
+      }
+    ]
+  },
+  {
+    "id": "conv_case_followup",
+    "gold_pages": [304, 305, 306, 307],
+    "messages": [
+      {
+        "role": "user",
+        "content": "What's the difference between behavioral and case interviews?"
+      },
+      {
+        "role": "assistant",
+        "content": "Behavioral questions probe past actions; case interviews ask you to structure and solve a live business problem out loud."
+      },
+      {
+        "role": "user",
+        "content": "Show me what the second type looks like in practice."
+      }
+    ]
+  },
+  {
+    "id": "conv_self_intro_followup",
+    "gold_pages": [182, 183, 184],
+    "messages": [
+      {
+        "role": "user",
+        "content": "I get nervous at the start of interviews."
+      },
+      {
+        "role": "assistant",
+        "content": "Opening with a clear self-introduction buys you time and frames the conversation—hook, motivation, and a couple of proof points."
+      },
+      {
+        "role": "user",
+        "content": "What structure does the book suggest for that?"
+      }
+    ]
+  },
+  {
+    "id": "conv_pm_anaphora",
+    "gold_pages": [16],
+    "messages": [
+      {
+        "role": "user",
+        "content": "I'm new to tech and keep hearing job titles I don't understand."
+      },
+      {
+        "role": "assistant",
+        "content": "Totally normal—many books start by defining the PM role versus project or program managers."
+      },
+      {
+        "role": "user",
+        "content": "What exactly is the first one?"
+      }
+    ]
+  },
+  {
+    "id": "conv_why_company",
+    "gold_pages": [185, 186],
+    "messages": [
+      {
+        "role": "user",
+        "content": "I have onsite interviews next week."
+      },
+      {
+        "role": "assistant",
+        "content": "Good luck—have crisp stories ready and a point of view on why this company fits you."
+      },
+      {
+        "role": "user",
+        "content": "How do I answer why I want to work here?"
+      }
+    ]
+  }
+]

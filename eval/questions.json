@@ -1,0 +1,27 @@
+[
+    {
+    "id": "q1",
+    "question": "how do I do self intriduction",
+    "gold_pages": [182,183,184]
+    },
+    {
+    "id": "q2",
+    "question": "how do I answer Why do you want to work here?",
+    "gold_pages": [185, 186]
+    },
+    {
+    "id": "q3",
+    "question": "what is a PM?",
+    "gold_pages": [16]
+    },
+    {
+    "id": "q4",
+    "question": "How do I answer estimation questions?",
+    "gold_pages": [223,224,225,226,227]
+    },
+    {
+    "id": "q5",
+    "question": "show me an example of case questions",
+    "gold_pages": [304,305,306,307]
+    }
+]
