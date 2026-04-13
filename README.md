@@ -1,6 +1,6 @@
 # Book Coach RAG (MVP)
 
-A small **retrieval-augmented** chat app: index **one PDF** (e.g. interview prep book), then chat with **OpenAI** using **top‑k** retrieved chunks as context. **Streamlit** UI; **Chroma** vector store; **LangChain** for ingest and chat chain.
+A small **retrieval-augmented** chat app: add **one or many PDFs** into a **shared Chroma index**, then chat with **OpenAI** using **top‑k** retrieved passages as context. **Streamlit** UI; **Chroma** on disk (`chroma_db/`); **LangChain** for ingest and the chat chain. New PDFs **append** to the index; **Reset knowledge base** wipes it. Answers are steered to cite **PDF filename and ~page**, not internal “chunk” ids.
 
 ---
 
@@ -23,7 +23,9 @@ A small **retrieval-augmented** chat app: index **one PDF** (e.g. interview prep
    streamlit run app.py
    ```
 
-5. In the sidebar: upload a PDF or set a path → **Index PDF** → chat.
+5. In the sidebar: upload **PDF(s)** and/or enter **one path per line** → **Add PDF(s) to index** (appends to the shared index). Use **Reset knowledge base** only when you want to delete `chroma_db/` and start over. Then chat.
+
+Re-indexing the **same** file again **duplicates** chunks (there is no per-file replace yet).
 
 ---
 
@@ -37,10 +39,12 @@ Application code lives in the **`book_coach`** package; **Streamlit** stays at t
 ├── book_coach/                 # RAG library: ingest, retrieve, answer
 │   ├── __init__.py
 │   ├── config.py               # Embedding model, Chroma collection, chunk defaults
+│   ├── chroma_lifecycle.py     # Close Chroma client + chmod tree (SQLite append/reset)
 │   ├── warn_filters.py         # Pydantic v1 UserWarning filter (Python 3.14+)
 │   ├── vectorstore_loader.py   # Load persisted Chroma for the app
-│   ├── ingest.py               # PDF → split → embed → Chroma
-│   └── rag.py                  # Query rewrite, search, guardrail, chat
+│   ├── ingest.py               # Append PDFs or reset index; per-chunk `source` metadata
+│   └── rag.py                  # Query rewrite, search, guardrail, chat (PDF+page citations)
+├── tests/                      # `python -m unittest discover -s tests`
 ├── eval/
 │   ├── run_eval.py             # Single-turn: Recall@k / MRR
 │   ├── run_conversation_eval.py
@@ -54,14 +58,14 @@ Application code lives in the **`book_coach`** package; **Streamlit** stays at t
 └── .python-version
 ```
 
-**Generated / local (not in git usefully):** `chroma_db/` (vector index), `.venv/`, optional uploaded PDF copy.
+**Generated / local (not in git usefully):** `chroma_db/` (vector index), `.venv/`, `.uploaded_pdfs/` (cached browser uploads).
 
 ### RAG architecture (current flow)
 
 ```mermaid
 flowchart TB
   subgraph index["Indexing"]
-    PDF[PDF file]
+    PDF[PDF file(s)]
     L[PyPDFLoader]
     S[RecursiveCharacterTextSplitter]
     E[OpenAI text-embedding-3-small]
@@ -82,7 +86,7 @@ flowchart TB
     Q1 --> SR[similarity_search_with_score]
     Q2 --> SR
     DB --> SR
-    SR --> C[Labeled context chunks]
+    SR --> C[Context blocks: PDF name + ~page + text]
     C --> A[Chat LLM gpt-4o-mini]
     U --> A
     H --> A
@@ -92,10 +96,11 @@ flowchart TB
 
 | Path | Role |
 |------|------|
-| `app.py` | Streamlit UI: PDF upload/path, chunking & retrieval tuning, guardrail toggle, chat + optional retrieval trace. |
-| `book_coach/rag.py` | Optional **LLM search-query rewrite** when history exists; `similarity_search_with_score`; guardrail; labeled context; answer still uses the real latest user message. |
-| `book_coach/ingest.py` | Load PDF, split, embed, write **Chroma** under `chroma_db/`. |
-| `book_coach/vectorstore_loader.py` | Opens persisted Chroma with LangChain for the live app. |
+| `app.py` | Streamlit UI: multi-PDF upload / paths (one per line), **Add PDF(s) to index** (append), **Reset knowledge base**, chunking & retrieval tuning, guardrail, chat + retrieval trace. Closes the in-session Chroma client before disk writes to avoid SQLite lock/readonly errors. |
+| `book_coach/rag.py` | Optional **LLM search-query rewrite** when history exists; `similarity_search_with_score`; guardrail; CONTEXT headers use **`[PDF: filename — ~page N]`**; system prompt asks the model to cite **PDF + page** in replies (not “chunk” labels). |
+| `book_coach/ingest.py` | **Append** PDFs to the shared index (or create it); **`reset_knowledge_base`** deletes `chroma_db/`; each chunk gets **`source`** = resolved path (basename shown in UI/trace). |
+| `book_coach/chroma_lifecycle.py` | **`close_langchain_chroma_client`**, **`ensure_chroma_tree_writable`** — used before append/reset and by ingest. |
+| `book_coach/vectorstore_loader.py` | Opens persisted Chroma (fixed **`langchain`** collection name) for the live app. |
 | `book_coach/config.py` | Shared constants (`EMBEDDING_MODEL`, Chroma collection name, default chunk size/overlap) — no heavy imports. |
 | `book_coach/warn_filters.py` | Suppresses LangChain’s Pydantic v1 **UserWarning** on Python 3.14+. |
 | `eval/run_eval.py` | CLI: loads `eval/questions.json`, queries Chroma via **chromadb**, prints **Recall@k** / **MRR**. |
@@ -108,7 +113,7 @@ flowchart TB
 
 - **Embeddings:** `text-embedding-3-small` (OpenAI).
 - **Chat:** `gpt-4o-mini` (OpenAI).
-- **Retrieval:** default top‑**k** = 5 (tunable in UI); chunks concatenated with `[Source chunk n, ~PDF page …]` labels for citation prompts.
+- **Retrieval:** default top‑**k** = 5 (tunable in UI); retrieved passages are passed to the model as **`[PDF: filename.pdf — ~page N]`** blocks so citations in the answer refer to the **source PDF and page**, not internal chunk ids.
 
 ---
 
@@ -226,7 +231,9 @@ The sample file reuses **page ranges** aligned to the bundled `questions.json` t
    Per row: \(1/r\) if first gold chunk is at rank \(r\), else \(0\); **MRR** = mean over rows.  
    Example (k=5): ranks 4, 1, 1, miss, miss → \((1/4 + 1 + 1 + 0 + 0)/5 = 0.45\).
 
-**Requirements:** `OPENAI_API_KEY` in `.env`, and `chroma_db/` built from the PDF you are evaluating.
+**Requirements:** `OPENAI_API_KEY` in `.env`, and `chroma_db/` built from the material you are evaluating.
+
+**Multi-PDF index:** `gold_pages` alone does not distinguish which PDF a page belongs to. The bundled eval JSON assumes a **single** main book (or you re-verify pages per document). For strict multi-source scoring you would extend the eval schema (e.g. gold `source` / filename).
 
 ---
 
@@ -240,6 +247,9 @@ The sample file reuses **page ranges** aligned to the bundled `questions.json` t
 | **2026-04-12** | **Multi-turn eval:** `eval/conversation_eval.json` (synthetic dialogs + assistant turns), `eval/run_conversation_eval.py`, `eval/chroma_retrieval.py`; `book_coach.rag.build_retrieval_query()` shared with the app. |
 | **2026-04-12** | **Package layout:** RAG logic moved into `book_coach/`; root `embed_config.py`, `ingest.py`, `rag.py`, `vectorstore_loader.py`, `warn_filters.py` removed in favor of the package. `pyproject.toml` declares the package for optional `pip install -e .`. |
 | **2026-04-12** | README: evaluation section restructured — comparison table, field tables, and JSON examples for **normal** vs **conversation** eval. |
+| **2026-04-11** | **Shared multi-PDF index:** append vs **Reset knowledge base**; `source` metadata; `.uploaded_pdfs/`; **`chroma_lifecycle`** closes Chroma before writes + optional chmod on `chroma_db/` (fixes common SQLite readonly/lock on second PDF). |
+| **2026-04-11** | **Answer citations:** CONTEXT uses PDF filename + ~page headers; system prompt instructs the model **not** to cite “chunk” ids in user-facing replies. |
+| **2026-04-11** | **Tests:** `tests/test_ingest.py` (`python -m unittest discover -s tests`). |
 
 ---
 
