@@ -65,32 +65,32 @@ Application code lives in the **`book_coach`** package; **Streamlit** stays at t
 ```mermaid
 flowchart TB
   subgraph index["Indexing"]
-    PDF[PDF file(s)]
-    L[PyPDFLoader]
-    S[RecursiveCharacterTextSplitter]
-    E[OpenAI text-embedding-3-small]
-    DB[(Chroma persist dir: chroma_db/)]
+    PDF["One or more PDF files"]
+    L["PyPDFLoader"]
+    S["RecursiveCharacterTextSplitter"]
+    E["OpenAI text-embedding-3-small"]
+    DB[("Chroma on disk, folder chroma_db")]
     PDF --> L --> S --> E --> DB
   end
 
   subgraph chat["Chat request"]
-    U[Latest user message]
-    H[Chat history]
-    R{Conversation-aware retrieval?}
-    Q1[Search query = last user only]
-    Q2[LLM rewrites standalone search query]
-    R -->|no / first turn| Q1
+    U["Latest user message"]
+    H["Chat history"]
+    R{"Conversation-aware retrieval?"}
+    Q1["Search query is last user only"]
+    Q2["LLM rewrites standalone search query"]
+    R -->|no, first turn| Q1
     R -->|yes| Q2
     H --> R
     U --> R
-    Q1 --> SR[similarity_search_with_score]
+    Q1 --> SR["similarity_search_with_score"]
     Q2 --> SR
     DB --> SR
-    SR --> C[Context blocks: PDF name + ~page + text]
-    C --> A[Chat LLM gpt-4o-mini]
+    SR --> C["Context with PDF name and page"]
+    C --> A["Chat LLM gpt-4o-mini"]
     U --> A
     H --> A
-    A --> Out[Assistant reply]
+    A --> Out["Assistant reply"]
   end
 ```
 
