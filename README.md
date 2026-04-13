@@ -254,6 +254,7 @@ The index lives under `chroma_db/` as local database files. That error means the
    If an old index is stuck: stop Streamlit, then `chmod -R u+w chroma_db` or `rm -rf chroma_db` and index again.
 2. **iCloud Desktop/Documents** — projects on a synced Desktop can confuse SQLite locks/permissions. Prefer a folder like `~/dev/rag test` (not under iCloud-synced Desktop), or disable “Desktop & Documents” sync for testing.
 3. **Another process** using `chroma_db` — only one writer; quit extra Streamlit/Python terminals.
+4. **Open Chroma client while appending** — the app now **closes** the in-session vector store before “Add PDF(s)” / “Reset” so SQLite is not left locked; if you still see this after updating, restart Streamlit once after `chmod -R u+w chroma_db`.
 
 ---
 
