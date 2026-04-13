@@ -27,28 +27,80 @@ A small **retrieval-augmented** chat app: index **one PDF** (e.g. interview prep
 
 ---
 
-## Project layout (what each file does)
+## Repository layout
+
+Application code lives in the **`book_coach`** package; **Streamlit** stays at the repo root as **`app.py`** so `streamlit run app.py` is unchanged. Evaluation scripts stay under **`eval/`**.
+
+```
+.
+├── app.py                      # Streamlit UI (entry point)
+├── book_coach/                 # RAG library: ingest, retrieve, answer
+│   ├── __init__.py
+│   ├── config.py               # Embedding model, Chroma collection, chunk defaults
+│   ├── warn_filters.py         # Pydantic v1 UserWarning filter (Python 3.14+)
+│   ├── vectorstore_loader.py   # Load persisted Chroma for the app
+│   ├── ingest.py               # PDF → split → embed → Chroma
+│   └── rag.py                  # Query rewrite, search, guardrail, chat
+├── eval/
+│   ├── run_eval.py             # Single-turn: Recall@k / MRR
+│   ├── run_conversation_eval.py
+│   ├── chroma_retrieval.py
+│   ├── questions.json
+│   └── conversation_eval.json
+├── requirements.txt
+├── pyproject.toml              # Python version + setuptools package discovery
+├── .env.example
+├── .gitignore
+└── .python-version
+```
+
+**Generated / local (not in git usefully):** `chroma_db/` (vector index), `.venv/`, optional uploaded PDF copy.
+
+### RAG architecture (current flow)
+
+```mermaid
+flowchart TB
+  subgraph index["Indexing"]
+    PDF[PDF file]
+    L[PyPDFLoader]
+    S[RecursiveCharacterTextSplitter]
+    E[OpenAI text-embedding-3-small]
+    DB[(Chroma persist dir: chroma_db/)]
+    PDF --> L --> S --> E --> DB
+  end
+
+  subgraph chat["Chat request"]
+    U[Latest user message]
+    H[Chat history]
+    R{Conversation-aware retrieval?}
+    Q1[Search query = last user only]
+    Q2[LLM rewrites standalone search query]
+    R -->|no / first turn| Q1
+    R -->|yes| Q2
+    H --> R
+    U --> R
+    Q1 --> SR[similarity_search_with_score]
+    Q2 --> SR
+    DB --> SR
+    SR --> C[Labeled context chunks]
+    C --> A[Chat LLM gpt-4o-mini]
+    U --> A
+    H --> A
+    A --> Out[Assistant reply]
+  end
+```
 
 | Path | Role |
 |------|------|
 | `app.py` | Streamlit UI: PDF upload/path, chunking & retrieval tuning, guardrail toggle, chat + optional retrieval trace. |
-| `rag.py` | Retrieval + generation: optional **LLM search-query rewrite** when chat history exists; `similarity_search_with_score` on that query; guardrail; labeled context; answer still uses the real latest user message. |
-| `ingest.py` | Load PDF (`PyPDFLoader`), split (`RecursiveCharacterTextSplitter`), embed (`text-embedding-3-small`), write **Chroma** under `chroma_db/`. |
-| `vectorstore_loader.py` | Opens persisted Chroma with LangChain for the live app. |
-| `embed_config.py` | Shared constants (`EMBEDDING_MODEL`, Chroma collection name, default chunk size/overlap) — no heavy imports. |
-| `warn_filters.py` | Suppresses LangChain’s Pydantic v1 **UserWarning** on Python 3.14+. |
+| `book_coach/rag.py` | Optional **LLM search-query rewrite** when history exists; `similarity_search_with_score`; guardrail; labeled context; answer still uses the real latest user message. |
+| `book_coach/ingest.py` | Load PDF, split, embed, write **Chroma** under `chroma_db/`. |
+| `book_coach/vectorstore_loader.py` | Opens persisted Chroma with LangChain for the live app. |
+| `book_coach/config.py` | Shared constants (`EMBEDDING_MODEL`, Chroma collection name, default chunk size/overlap) — no heavy imports. |
+| `book_coach/warn_filters.py` | Suppresses LangChain’s Pydantic v1 **UserWarning** on Python 3.14+. |
 | `eval/run_eval.py` | CLI: loads `eval/questions.json`, queries Chroma via **chromadb**, prints **Recall@k** / **MRR**. |
 | `eval/chroma_retrieval.py` | Shared Chroma query helpers for eval scripts. |
-| `eval/run_conversation_eval.py` | Multi-turn eval: **baseline** (last user line only) vs **rewrite** (`rag.build_retrieval_query`); uses `eval/conversation_eval.json`. |
-| `eval/questions.json` | Single-turn eval: `question` + `gold_pages` (**1-based**). |
-| `eval/conversation_eval.json` | Multi-turn synthetic dialogs; **gold_pages** apply to the **final** user turn (verify against your PDF). |
-| `requirements.txt` | Pip dependencies. |
-| `pyproject.toml` | `requires-python` and minimal project metadata. |
-| `.env.example` | Template for `OPENAI_API_KEY`. |
-| `.gitignore` | Ignores `.env`, `chroma_db/`, `.venv/`, temp upload, etc. |
-| `.python-version` | Hint for pyenv/asdf (e.g. `3.14.3`). |
-
-**Generated / local (not committed usefully):** `chroma_db/` (index), `.venv/`, optional `.uploaded.pdf`.
+| `eval/run_conversation_eval.py` | Multi-turn eval: **baseline** vs **rewrite** (`book_coach.rag.build_retrieval_query`); uses `eval/conversation_eval.json`. |
 
 ---
 
@@ -184,8 +236,9 @@ The sample file reuses **page ranges** aligned to the bundled `questions.json` t
 |------|------|
 | **2026-04-12** | README added: project map, eval metrics (Recall@k, MRR, distance `d`), gold page convention. Example local run on **5** questions in `eval/questions.json` with **k=5**: **Recall@5 = 60% (3/5)**, **MRR = 0.450** (q1 rank 4, q2–q3 rank 1, q4–q5 miss). *Re-run after changing index or questions to refresh numbers.* |
 | **2026-04-12** | **Conversation-aware retrieval:** when prior turns exist, `gpt-4o-mini` (temp 0) rewrites a **standalone search query** for embeddings; the chat model still receives the actual latest user message + history. Toggle in Streamlit sidebar; retrieval trace shows **search query used for embedding** vs latest utterance. |
-| **2026-04-12** | **Faster Streamlit reruns:** `app.py` avoids importing `rag` / full LangChain on every run. Chunk defaults live in `embed_config.py`. LangChain loads when you **index**, when an existing **`chroma_db`** is opened, or when you **send a chat message**. The `streamlit` package itself may still take a while to start on Python 3.14—wait for the local URL or use Python 3.12 if startup stays painful. |
-| **2026-04-12** | **Multi-turn eval:** `eval/conversation_eval.json` (synthetic dialogs + assistant turns), `eval/run_conversation_eval.py`, `eval/chroma_retrieval.py`; `rag.build_retrieval_query()` shared with the app. |
+| **2026-04-12** | **Faster Streamlit reruns:** `app.py` avoids importing `book_coach.rag` / full LangChain on every run. Chunk defaults live in `book_coach/config.py`. LangChain loads when you **index**, when an existing **`chroma_db`** is opened, or when you **send a chat message**. The `streamlit` package itself may still take a while to start on Python 3.14—wait for the local URL or use Python 3.12 if startup stays painful. |
+| **2026-04-12** | **Multi-turn eval:** `eval/conversation_eval.json` (synthetic dialogs + assistant turns), `eval/run_conversation_eval.py`, `eval/chroma_retrieval.py`; `book_coach.rag.build_retrieval_query()` shared with the app. |
+| **2026-04-12** | **Package layout:** RAG logic moved into `book_coach/`; root `embed_config.py`, `ingest.py`, `rag.py`, `vectorstore_loader.py`, `warn_filters.py` removed in favor of the package. `pyproject.toml` declares the package for optional `pip install -e .`. |
 | **2026-04-12** | README: evaluation section restructured — comparison table, field tables, and JSON examples for **normal** vs **conversation** eval. |
 
 ---

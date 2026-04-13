@@ -1,12 +1,12 @@
 """Load vector store and run retrieval + chat."""
 
-import warn_filters  # noqa: F401
+import book_coach.warn_filters  # noqa: F401
 
 from dotenv import load_dotenv
 from langchain_community.vectorstores import Chroma
 from langchain_openai import ChatOpenAI
 
-from vectorstore_loader import load_vectorstore
+from book_coach.vectorstore_loader import load_vectorstore
 
 load_dotenv()
 
@@ -160,3 +160,6 @@ def answer(
 
     response = llm.invoke(messages)
     return response.content, retrieval_bundle, False
+
+
+__all__ = ["answer", "build_retrieval_query", "DEFAULT_RETRIEVAL_K", "CHAT_MODEL"]

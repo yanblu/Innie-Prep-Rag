@@ -4,7 +4,7 @@ Heavy deps (LangChain, OpenAI client) load only when you index, open an existing
 index, or send a chat message — not on every sidebar widget change.
 """
 
-import warn_filters  # noqa: F401
+import book_coach.warn_filters  # noqa: F401
 
 import os
 from pathlib import Path
@@ -12,7 +12,7 @@ from pathlib import Path
 import streamlit as st
 from dotenv import load_dotenv
 
-from embed_config import DEFAULT_CHUNK_OVERLAP, DEFAULT_CHUNK_SIZE
+from book_coach.config import DEFAULT_CHUNK_OVERLAP, DEFAULT_CHUNK_SIZE
 
 load_dotenv()
 
@@ -52,7 +52,7 @@ def get_vectorstore():
     st.session_state._vectorstore_resolved = True
     if not _chroma_populated(persist_dir):
         return None
-    from vectorstore_loader import load_vectorstore
+    from book_coach.vectorstore_loader import load_vectorstore
 
     st.session_state.vectorstore = load_vectorstore(persist_dir)
     return st.session_state.vectorstore
@@ -80,8 +80,8 @@ with st.sidebar:
     )
 
     if st.button("Index PDF", type="primary"):
-        from ingest import ingest_pdf
-        from vectorstore_loader import load_vectorstore
+        from book_coach.ingest import ingest_pdf
+        from book_coach.vectorstore_loader import load_vectorstore
 
         pdf_path: str | None = None
         if uploaded is not None:
@@ -211,7 +211,7 @@ else:
                     render_retrieval_trace(msg["retrieval"])  # dict or legacy list
 
     if prompt := st.chat_input("Ask about the book or practice an interview answer…"):
-        from rag import answer
+        from book_coach.rag import answer
 
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):

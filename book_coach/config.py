@@ -1,4 +1,4 @@
-"""Shared constants — no third-party imports (safe for lightweight scripts like eval)."""
+"""Shared constants — no third-party imports (safe for lightweight eval scripts)."""
 
 EMBEDDING_MODEL = "text-embedding-3-small"
 # LangChain community Chroma default collection name

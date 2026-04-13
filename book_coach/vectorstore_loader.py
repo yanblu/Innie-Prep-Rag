@@ -1,6 +1,6 @@
 """Open Chroma index created by LangChain ingest."""
 
-import warn_filters  # noqa: F401
+import book_coach.warn_filters  # noqa: F401
 
 from pathlib import Path
 
@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from langchain_community.vectorstores import Chroma
 from langchain_openai import OpenAIEmbeddings
 
-from embed_config import EMBEDDING_MODEL
+from book_coach.config import EMBEDDING_MODEL
 
 load_dotenv()
 

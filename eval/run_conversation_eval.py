@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Multi-turn retrieval eval: compare baseline (last user message only) vs conversation-aware
-rewrite (same logic as rag.answer).
+rewrite (same logic as book_coach.rag.answer).
 
 Each JSON row:
   "id": string
@@ -36,7 +36,7 @@ for p in (EVAL_DIR, ROOT):
 load_dotenv(ROOT / ".env")
 
 from chroma_retrieval import first_gold_rank, human_pages_to_meta, query_chroma  # noqa: E402
-from rag import build_retrieval_query  # noqa: E402
+from book_coach.rag import build_retrieval_query  # noqa: E402
 
 
 def main() -> None:

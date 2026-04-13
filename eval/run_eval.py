@@ -3,7 +3,7 @@
 Retrieval eval: recall@k using human PDF page numbers (1-based in questions.json).
 
 Uses Chroma's Python client + OpenAIEmbeddingFunction only (no LangChain import chain),
-so startup is much faster than importing rag.py / ChatOpenAI.
+so startup is much faster than importing book_coach.rag / ChatOpenAI.
 
 Schema for each item:
   "id": optional string

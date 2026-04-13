@@ -1,6 +1,6 @@
 """Load a PDF, chunk, embed with OpenAI, persist to Chroma."""
 
-import warn_filters  # noqa: F401
+import book_coach.warn_filters  # noqa: F401
 
 import os
 import shutil
@@ -12,7 +12,7 @@ from langchain_community.vectorstores import Chroma
 from langchain_openai import OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from embed_config import DEFAULT_CHUNK_OVERLAP, DEFAULT_CHUNK_SIZE, EMBEDDING_MODEL
+from book_coach.config import DEFAULT_CHUNK_OVERLAP, DEFAULT_CHUNK_SIZE, EMBEDDING_MODEL
 
 load_dotenv()
 
