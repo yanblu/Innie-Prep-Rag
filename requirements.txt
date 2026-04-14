@@ -1,4 +1,4 @@
-# Tested with Python 3.14.x; LangChain may emit Pydantic v1 notices — silenced in warn_filters.py.
+# Tested with Python 3.14.x; LangChain may emit Pydantic v1 notices — silenced in book_coach/warn_filters.py.
 streamlit>=1.28.0
 langchain>=0.3.0
 langchain-openai>=0.2.0

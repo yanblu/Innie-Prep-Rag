@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from embed_config import CHROMA_LANGCHAIN_COLLECTION, EMBEDDING_MODEL
+from book_coach.config import CHROMA_LANGCHAIN_COLLECTION, EMBEDDING_MODEL
 
 
 def human_pages_to_meta(human_pages: list[int]) -> set[int]:

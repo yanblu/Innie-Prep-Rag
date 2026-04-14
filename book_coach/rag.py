@@ -1,12 +1,14 @@
 """Load vector store and run retrieval + chat."""
 
-import warn_filters  # noqa: F401
+import book_coach.warn_filters  # noqa: F401
+
+from pathlib import Path
 
 from dotenv import load_dotenv
 from langchain_community.vectorstores import Chroma
 from langchain_openai import ChatOpenAI
 
-from vectorstore_loader import load_vectorstore
+from book_coach.vectorstore_loader import load_vectorstore
 
 load_dotenv()
 
@@ -14,7 +16,7 @@ CHAT_MODEL = "gpt-4o-mini"
 DEFAULT_RETRIEVAL_K = 5
 
 GUARDRAIL_MESSAGE = (
-    "I couldn’t find a close enough match in your indexed PDF for this question—the best "
+    "I couldn’t find a close enough match in your indexed PDFs for this question—the best "
     "retrieval hit exceeded your **distance threshold**. Try rephrasing, adjusting the "
     "threshold in the sidebar, or re-indexing with different chunk settings. Open the "
     "retrieval trace below to see what was still retrieved."
@@ -24,11 +26,12 @@ SYSTEM_PROMPT = """You are an expert coach grounded in the book/material provide
 
 Rules:
 - Prefer answers that clearly tie back to CONTEXT when it is relevant.
-- When you state specific claims, frameworks, steps, or quotes from CONTEXT, cite the passage using its label, e.g. "(Source: chunk 2)" or "(chunk 1, ~p. 14)". Use only chunk numbers and pages as they appear in CONTEXT. Do not invent sources.
+- When you cite where something came from, refer to the **PDF file name** and **approximate page** exactly as shown in each CONTEXT block’s header (e.g. “In *Cracking the PM Interview.pdf*, around page 14…” or “(see *guide.pdf*, ~p. 223)”). Do **not** say “chunk” or “chunk 1/2/3” in your reply—users care about the source document, not retrieval slices.
+- Use only filenames and page numbers that appear in CONTEXT headers. Do not invent sources.
 - If CONTEXT does not contain enough to answer, say so in one short sentence, then you may add brief general interview-prep advice and label it as general advice (not from the book).
 - Be concise, practical, and encouraging."""
 
-REWRITE_SYSTEM = """You write a single line search query for a vector database over a book (interview prep, PM, careers).
+REWRITE_SYSTEM = """You write a single line search query for a vector database over the user’s indexed PDFs (interview prep, PM, careers).
 
 Output rules:
 - Reply with ONLY the search query text: no quotes, labels, or explanation.
@@ -88,12 +91,18 @@ def build_retrieval_query(
 
 
 def _format_context_chunks(docs: list) -> str:
+    """Build CONTEXT blocks with PDF+page headers so the model cites documents, not chunk ids."""
     parts: list[str] = []
     for i, doc in enumerate(docs, start=1):
         md = doc.metadata or {}
         page = md.get("page")
-        page_note = f", ~PDF page {int(page) + 1}" if page is not None else ""
-        parts.append(f"[Source chunk {i}{page_note}]\n{doc.page_content}")
+        src = md.get("source")
+        pdf_name = Path(str(src)).name if src else f"document-{i}.pdf"
+        if page is not None:
+            header = f"[PDF: {pdf_name} — ~page {int(page) + 1}]"
+        else:
+            header = f"[PDF: {pdf_name}]"
+        parts.append(f"{header}\n{doc.page_content}")
     return "\n\n---\n\n".join(parts)
 
 
@@ -160,3 +169,6 @@ def answer(
 
     response = llm.invoke(messages)
     return response.content, retrieval_bundle, False
+
+
+__all__ = ["answer", "build_retrieval_query", "DEFAULT_RETRIEVAL_K", "CHAT_MODEL"]
