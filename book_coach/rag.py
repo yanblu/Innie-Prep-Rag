@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from langchain_community.vectorstores import Chroma
 from langchain_openai import ChatOpenAI
 
+from book_coach.hybrid_retrieval import hybrid_search
 from book_coach.vectorstore_loader import load_vectorstore
 
 load_dotenv()
@@ -113,6 +114,7 @@ def answer(
     retrieval_k: int = DEFAULT_RETRIEVAL_K,
     guardrail_max_distance: float | None = None,
     use_query_rewrite: bool = True,
+    retrieval_mode: str = "dense",
 ) -> tuple[str, dict, bool]:
     """Return (assistant_reply, retrieval_bundle, guardrail_skipped_llm).
 
@@ -126,31 +128,61 @@ def answer(
         use_query_rewrite=use_query_rewrite,
     )
 
-    ranked = vectorstore.similarity_search_with_score(retrieval_query, k=k)
-    docs = [doc for doc, _ in ranked]
+    is_hybrid = retrieval_mode == "hybrid"
+    if is_hybrid:
+        persist_dir = str(getattr(vectorstore, "_persist_directory", "chroma_db"))
+        ranked_hybrid = hybrid_search(
+            vectorstore,
+            retrieval_query,
+            k_final=k,
+            persist_dir=persist_dir,
+        )
+        docs = [item.doc for item in ranked_hybrid]
+    else:
+        ranked = vectorstore.similarity_search_with_score(retrieval_query, k=k)
+        docs = [doc for doc, _ in ranked]
 
     chunks: list[dict] = []
-    for i, (doc, distance) in enumerate(ranked, start=1):
-        md = doc.metadata or {}
-        chunks.append(
-            {
-                "rank": i,
-                "distance": float(distance),
-                "preview": doc.page_content[:800] + ("…" if len(doc.page_content) > 800 else ""),
-                "full_content": doc.page_content,
-                "page": md.get("page"),
-                "source": md.get("source"),
-            }
-        )
+    if is_hybrid:
+        for i, item in enumerate(ranked_hybrid, start=1):
+            md = item.doc.metadata or {}
+            chunks.append(
+                {
+                    "rank": i,
+                    "rrf_score": float(item.rrf_score),
+                    "dense_rank": item.dense_rank,
+                    "sparse_rank": item.sparse_rank,
+                    "dense_distance": item.dense_distance,
+                    "sparse_score": item.sparse_score,
+                    "preview": item.doc.page_content[:800] + ("…" if len(item.doc.page_content) > 800 else ""),
+                    "full_content": item.doc.page_content,
+                    "page": md.get("page"),
+                    "source": md.get("source"),
+                }
+            )
+    else:
+        for i, (doc, distance) in enumerate(ranked, start=1):
+            md = doc.metadata or {}
+            chunks.append(
+                {
+                    "rank": i,
+                    "distance": float(distance),
+                    "preview": doc.page_content[:800] + ("…" if len(doc.page_content) > 800 else ""),
+                    "full_content": doc.page_content,
+                    "page": md.get("page"),
+                    "source": md.get("source"),
+                }
+            )
 
     retrieval_bundle: dict = {
         "chunks": chunks,
         "search_query": retrieval_query,
         "latest_user_message": user_message,
         "rewrite_applied": rewrite_applied,
+        "retrieval_mode": retrieval_mode,
     }
 
-    if guardrail_max_distance is not None and chunks:
+    if guardrail_max_distance is not None and chunks and not is_hybrid:
         if chunks[0]["distance"] > guardrail_max_distance:
             return GUARDRAIL_MESSAGE, retrieval_bundle, True
 

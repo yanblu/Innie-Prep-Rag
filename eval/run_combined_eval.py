@@ -24,7 +24,7 @@ for p in (EVAL_DIR, ROOT):
 
 load_dotenv(ROOT / ".env")
 
-from chroma_retrieval import first_gold_rank, human_pages_to_meta, query_chroma  # noqa: E402
+from chroma_retrieval import first_gold_rank, human_pages_to_meta, query_ranked  # noqa: E402
 from judge import JudgeResult, judge_answer  # noqa: E402
 from langchain_openai import ChatOpenAI  # noqa: E402
 from book_coach.rag import CHAT_MODEL, SYSTEM_PROMPT, build_retrieval_query  # noqa: E402
@@ -128,6 +128,12 @@ def main() -> None:
         default=0,
         help="Limit rows processed (0 = all).",
     )
+    parser.add_argument(
+        "--retrieval-mode",
+        choices=["dense", "hybrid"],
+        default="dense",
+        help="Retrieval mode used for eval queries.",
+    )
     args = parser.parse_args()
 
     persist = Path(args.persist)
@@ -155,7 +161,7 @@ def main() -> None:
 
     print("=== Combined Eval (retrieval + judge) ===")
     print(
-        f"file={args.file} k={k} rewrite={'on' if use_rewrite else 'off'} "
+        f"file={args.file} k={k} mode={args.retrieval_mode} rewrite={'on' if use_rewrite else 'off'} "
         f"judge={'off' if args.skip_judge else args.judge_model}"
     )
     print()
@@ -169,7 +175,12 @@ def main() -> None:
             latest,
             use_query_rewrite=use_rewrite,
         )
-        ranked = query_chroma(persist, retrieval_query, k=k)
+        ranked = query_ranked(
+            persist,
+            retrieval_query,
+            k=k,
+            retrieval_mode=args.retrieval_mode,
+        )
         gold = human_pages_to_meta(gold_pages)
         first_rank = first_gold_rank(ranked, gold)
         hit = first_rank is not None
@@ -208,6 +219,7 @@ def main() -> None:
             "id": rid,
             "latest_user_message": latest,
             "query_type": "rewrite" if rewrite_applied else "baseline",
+            "retrieval_mode": args.retrieval_mode,
             "retrieval_query": retrieval_query,
             "gold_pages": gold_pages,
             "hit": hit,
@@ -216,7 +228,8 @@ def main() -> None:
                 (int(md.get("page")) + 1) if md.get("page") is not None else None
                 for _txt, _d, md in ranked
             ],
-            "retrieved_top_distances": [float(dist) for _txt, dist, _md in ranked],
+            "retrieved_top_scores": [float(score) for _txt, score, _md in ranked],
+            "retrieval_score_label": "rrf" if args.retrieval_mode == "hybrid" else "distance",
             "answer": answer_text,
             "judge": judge_dict,
         }
@@ -226,6 +239,7 @@ def main() -> None:
         rank_s = str(first_rank) if first_rank is not None else "-"
         line = (
             f"[{status}] id={rid} first_gold_rank={rank_s} "
+            f"mode={args.retrieval_mode} "
             f"query_type={row_result['query_type']} "
             f"user='{_truncate(latest, 70)}'"
         )

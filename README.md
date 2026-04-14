@@ -160,6 +160,7 @@ This runner keeps Recall@k/MRR and adds judge scores for the generated answer.
 
 ```bash
 python eval/run_combined_eval.py --file eval/conversation_eval.json -k 5
+python eval/run_combined_eval.py --file eval/conversation_eval.json -k 5 --retrieval-mode hybrid
 python eval/run_combined_eval.py --skip-judge --max-rows 2
 python eval/run_combined_eval.py --file eval/questions.json --no-rewrite
 ```
@@ -203,6 +204,7 @@ Do not treat their output as a benchmark; re-label your own data and re-run for 
 ```bash
 python eval/run_eval.py
 python eval/run_eval.py -k 8 --persist chroma_db
+python eval/run_eval.py --retrieval-mode hybrid
 ```
 
 ---
@@ -248,6 +250,7 @@ python eval/run_eval.py -k 8 --persist chroma_db
 python eval/run_conversation_eval.py
 python eval/run_conversation_eval.py -k 8
 python eval/run_conversation_eval.py --no-rewrite
+python eval/run_conversation_eval.py --retrieval-mode hybrid
 ```
 
 `--no-rewrite` prints **baseline** summary only (no extra LLM cost).

@@ -35,8 +35,10 @@ class TestIngestModes(unittest.TestCase):
     @patch("book_coach.ingest.OpenAIEmbeddings")
     @patch("book_coach.ingest.chroma_persist_populated")
     @patch("book_coach.ingest._load_split_one_pdf")
+    @patch("book_coach.ingest.rebuild_sparse_index_from_vectorstore")
     def test_append_creates_fresh_index_when_empty(
         self,
+        _mock_sparse: MagicMock,
         mock_load: MagicMock,
         mock_populated: MagicMock,
         _mock_emb: MagicMock,
@@ -63,8 +65,10 @@ class TestIngestModes(unittest.TestCase):
     @patch("book_coach.ingest.OpenAIEmbeddings")
     @patch("book_coach.ingest.chroma_persist_populated")
     @patch("book_coach.ingest._load_split_one_pdf")
+    @patch("book_coach.ingest.rebuild_sparse_index_from_vectorstore")
     def test_append_adds_to_existing_index(
         self,
+        _mock_sparse: MagicMock,
         mock_load: MagicMock,
         mock_populated: MagicMock,
         _mock_emb: MagicMock,
@@ -95,8 +99,10 @@ class TestIngestModes(unittest.TestCase):
     @patch("book_coach.ingest.OpenAIEmbeddings")
     @patch("book_coach.ingest.chroma_persist_populated")
     @patch("book_coach.ingest._load_split_one_pdf")
+    @patch("book_coach.ingest.rebuild_sparse_index_from_vectorstore")
     def test_append_replaces_existing_chunks_for_same_source(
         self,
+        _mock_sparse: MagicMock,
         mock_load: MagicMock,
         mock_populated: MagicMock,
         _mock_emb: MagicMock,
@@ -127,8 +133,10 @@ class TestIngestModes(unittest.TestCase):
     @patch("book_coach.ingest.OpenAIEmbeddings")
     @patch("book_coach.ingest.chroma_persist_populated")
     @patch("book_coach.ingest._load_split_one_pdf")
+    @patch("book_coach.ingest.rebuild_sparse_index_from_vectorstore")
     def test_append_dedupes_duplicate_input_paths(
         self,
+        _mock_sparse: MagicMock,
         mock_load: MagicMock,
         mock_populated: MagicMock,
         _mock_emb: MagicMock,
