@@ -48,6 +48,8 @@ Application code lives in the **`book_coach`** package; **Streamlit** stays at t
 ├── eval/
 │   ├── run_eval.py             # Single-turn: Recall@k / MRR
 │   ├── run_conversation_eval.py
+│   ├── run_combined_eval.py    # Retrieval metrics + LLM-as-a-judge
+│   ├── judge.py                # Judge rubric + strict JSON parsing
 │   ├── chroma_retrieval.py
 │   ├── questions.json
 │   └── conversation_eval.json
@@ -106,6 +108,8 @@ flowchart TB
 | `eval/run_eval.py` | CLI: loads `eval/questions.json`, queries Chroma via **chromadb**, prints **Recall@k** / **MRR**. |
 | `eval/chroma_retrieval.py` | Shared Chroma query helpers for eval scripts. |
 | `eval/run_conversation_eval.py` | Multi-turn eval: **baseline** vs **rewrite** (`book_coach.rag.build_retrieval_query`); uses `eval/conversation_eval.json`. |
+| `eval/run_combined_eval.py` | Combined eval: retrieval metrics + optional app-like answer generation + LLM judge scores; writes row-level JSONL under `eval/results/`. |
+| `eval/judge.py` | Judge prompt/rubric and strict parser; deterministic `pass` computed from score thresholds. |
 
 ---
 
@@ -117,7 +121,7 @@ flowchart TB
 
 ---
 
-## Evaluation (retrieval)
+## Evaluation (retrieval + judge)
 
 Two complementary JSON sets: **single-turn** (does your index answer standalone questions?) and **multi-turn** (does **conversation-aware query rewrite** help vague follow-ups?).
 
@@ -129,6 +133,44 @@ Two complementary JSON sets: **single-turn** (does your index answer standalone 
 | **What you label** | One **question** string → **gold_pages** | A **message list** ending in **user** → **gold_pages** for **that final user turn** |
 
 **Shared rule — `gold_pages`:** use **human** PDF page numbers (**first page = 1**). Eval code maps to chunk metadata as `metadata["page"] = human_page - 1` (PyPDFLoader). A **HIT** means at least one top‑**k** chunk’s page is in `gold_pages`.
+
+### Combined eval with LLM-as-a-judge — `eval/run_combined_eval.py`
+
+**Purpose:** run retrieval metrics and answer-quality judging in one command.  
+This runner keeps Recall@k/MRR and adds judge scores for the generated answer.
+
+**What it does per row:**
+
+1. Builds the retrieval query (baseline or conversation-aware rewrite).
+2. Retrieves top‑k chunks from Chroma.
+3. Computes retrieval signals (`HIT/MISS`, `first_gold_rank`).
+4. (Optional) Generates an app-like answer from retrieved context.
+5. (Optional) Judges that answer with `eval/judge.py`.
+
+**Judge outputs (per row):**
+
+- `groundedness` (1-5)
+- `correctness` (1-5)
+- `citation_faithfulness` (1-5)
+- `overall` (1-5)
+- `pass` (deterministic in code: `overall >= 4`, `groundedness >= 4`, `citation_faithfulness >= 3`)
+- `reason` (short explanation)
+
+**Run:**
+
+```bash
+python eval/run_combined_eval.py --file eval/conversation_eval.json -k 5
+python eval/run_combined_eval.py --skip-judge --max-rows 2
+python eval/run_combined_eval.py --file eval/questions.json --no-rewrite
+```
+
+**Outputs:**
+
+- Console: per-row status + aggregate retrieval/judge summaries.
+- File: `eval/results/combined_YYYYMMDD_HHMM.jsonl` with row-level details.
+
+**Important:** `eval/questions.json` and `eval/conversation_eval.json` are example datasets.  
+Do not treat their output as a benchmark; re-label your own data and re-run for meaningful performance conclusions.
 
 ---
 
@@ -241,7 +283,7 @@ The sample file reuses **page ranges** aligned to the bundled `questions.json` t
 
 | Date | Note |
 |------|------|
-| **2026-04-12** | README added: project map, eval metrics (Recall@k, MRR, distance `d`), gold page convention. Example local run on **5** questions in `eval/questions.json` with **k=5**: **Recall@5 = 60% (3/5)**, **MRR = 0.450** (q1 rank 4, q2–q3 rank 1, q4–q5 miss). *Re-run after changing index or questions to refresh numbers.* |
+| **2026-04-12** | README added: project map, eval metrics (Recall@k, MRR, distance `d`), gold page convention. Eval JSON files are examples; re-run on your own labeled set for meaningful performance numbers. |
 | **2026-04-12** | **Conversation-aware retrieval:** when prior turns exist, `gpt-4o-mini` (temp 0) rewrites a **standalone search query** for embeddings; the chat model still receives the actual latest user message + history. Toggle in Streamlit sidebar; retrieval trace shows **search query used for embedding** vs latest utterance. |
 | **2026-04-12** | **Faster Streamlit reruns:** `app.py` avoids importing `book_coach.rag` / full LangChain on every run. Chunk defaults live in `book_coach/config.py`. LangChain loads when you **index**, when an existing **`chroma_db`** is opened, or when you **send a chat message**. The `streamlit` package itself may still take a while to start on Python 3.14—wait for the local URL or use Python 3.12 if startup stays painful. |
 | **2026-04-12** | **Multi-turn eval:** `eval/conversation_eval.json` (synthetic dialogs + assistant turns), `eval/run_conversation_eval.py`, `eval/chroma_retrieval.py`; `book_coach.rag.build_retrieval_query()` shared with the app. |
