@@ -6,6 +6,7 @@ import os
 import shutil
 from collections.abc import Sequence
 from pathlib import Path
+from typing import TypedDict
 
 from dotenv import load_dotenv
 from langchain_community.document_loaders import PyPDFLoader
@@ -23,6 +24,15 @@ from book_coach.config import (
 )
 
 load_dotenv()
+
+
+class AppendStats(TypedDict):
+    """Summary of an append/reindex operation."""
+
+    chunks_added: int
+    files_processed: int
+    files_replaced: int
+    files_new: int
 
 
 def chroma_persist_populated(persist_dir: str) -> bool:
@@ -93,13 +103,17 @@ def append_pdfs(
     persist_dir: str = "chroma_db",
     chunk_size: int = DEFAULT_CHUNK_SIZE,
     chunk_overlap: int = DEFAULT_CHUNK_OVERLAP,
-) -> int:
+) -> AppendStats:
     """Add chunks from one or more PDFs to the shared index. Creates a new index if none exists.
 
-    Returns the number of chunks added. Does not remove existing chunks (same PDF indexed twice
-    will duplicate chunks).
+    Returns ingest stats (chunks and file replacement/new counts).
+
+    Per-file dedupe behavior: if a source PDF already exists in the shared index, its previous
+    chunks are deleted before re-indexing that same file.
     """
-    paths = [str(Path(p).expanduser()) for p in pdf_paths if str(p).strip()]
+    resolved_paths = [str(Path(p).expanduser().resolve()) for p in pdf_paths if str(p).strip()]
+    # Keep first-seen order and avoid duplicate work within a single submit.
+    paths = list(dict.fromkeys(resolved_paths))
     if not paths:
         raise ValueError("No PDF paths provided.")
 
@@ -115,12 +129,19 @@ def append_pdfs(
     embeddings = OpenAIEmbeddings(model=EMBEDDING_MODEL)
     collection = CHROMA_LANGCHAIN_COLLECTION
 
+    files_replaced = 0
     if chroma_persist_populated(str(p)):
         store = Chroma(
             persist_directory=str(p),
             embedding_function=embeddings,
             collection_name=collection,
         )
+        for source in paths:
+            existing = store.get(where={"source": source}, include=[])
+            ids = existing.get("ids", []) if isinstance(existing, dict) else []
+            if ids:
+                store.delete(ids=list(ids))
+                files_replaced += 1
         store.add_documents(all_splits)
     else:
         if p.exists():
@@ -132,7 +153,12 @@ def append_pdfs(
             collection_name=collection,
         )
 
-    return len(all_splits)
+    return {
+        "chunks_added": len(all_splits),
+        "files_processed": len(paths),
+        "files_replaced": files_replaced,
+        "files_new": len(paths) - files_replaced,
+    }
 
 
 def ingest_pdf(
@@ -143,9 +169,10 @@ def ingest_pdf(
 ) -> int:
     """Replace any existing index and build a new one from a single PDF. Returns chunk count."""
     reset_knowledge_base(persist_dir)
-    return append_pdfs(
+    stats = append_pdfs(
         [pdf_path],
         persist_dir=persist_dir,
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
     )
+    return int(stats["chunks_added"])

@@ -50,8 +50,11 @@ class TestIngestModes(unittest.TestCase):
             Document(page_content="a", metadata={"source": "/x/1.pdf", "page": 0}),
         ]
         with patch("book_coach.ingest.Path.exists", return_value=False):
-            n = append_pdfs(["/fake/one.pdf"], persist_dir="chroma_test_fresh")
-        self.assertEqual(n, 1)
+            stats = append_pdfs(["/fake/one.pdf"], persist_dir="chroma_test_fresh")
+        self.assertEqual(stats["chunks_added"], 1)
+        self.assertEqual(stats["files_processed"], 1)
+        self.assertEqual(stats["files_replaced"], 0)
+        self.assertEqual(stats["files_new"], 1)
         mock_chroma.from_documents.assert_called_once()
         mock_chroma.return_value.add_documents.assert_not_called()
 
@@ -76,12 +79,79 @@ class TestIngestModes(unittest.TestCase):
         ]
         store = MagicMock()
         mock_chroma.return_value = store
-        n = append_pdfs(["/fake/two.pdf"], persist_dir="chroma_test_append")
-        self.assertEqual(n, 1)
+        store.get.return_value = {"ids": []}
+        stats = append_pdfs(["/fake/two.pdf"], persist_dir="chroma_test_append")
+        self.assertEqual(stats["chunks_added"], 1)
+        self.assertEqual(stats["files_processed"], 1)
+        self.assertEqual(stats["files_replaced"], 0)
+        self.assertEqual(stats["files_new"], 1)
         mock_chroma.from_documents.assert_not_called()
         store.add_documents.assert_called_once()
         args, _kwargs = store.add_documents.call_args
         self.assertEqual(len(args[0]), 1)
+
+    @patch("book_coach.ingest._ensure_persist_parent_writable")
+    @patch("book_coach.ingest.Chroma")
+    @patch("book_coach.ingest.OpenAIEmbeddings")
+    @patch("book_coach.ingest.chroma_persist_populated")
+    @patch("book_coach.ingest._load_split_one_pdf")
+    def test_append_replaces_existing_chunks_for_same_source(
+        self,
+        mock_load: MagicMock,
+        mock_populated: MagicMock,
+        _mock_emb: MagicMock,
+        mock_chroma: MagicMock,
+        _mock_ensure: MagicMock,
+    ) -> None:
+        from book_coach.ingest import append_pdfs
+
+        mock_populated.return_value = True
+        mock_load.return_value = [
+            Document(page_content="b", metadata={"source": "/x/2.pdf", "page": 0}),
+        ]
+        store = MagicMock()
+        store.get.return_value = {"ids": ["id-1", "id-2"]}
+        mock_chroma.return_value = store
+
+        stats = append_pdfs(["/fake/two.pdf"], persist_dir="chroma_test_append")
+        self.assertEqual(stats["chunks_added"], 1)
+        self.assertEqual(stats["files_processed"], 1)
+        self.assertEqual(stats["files_replaced"], 1)
+        self.assertEqual(stats["files_new"], 0)
+        store.get.assert_called_once()
+        store.delete.assert_called_once_with(ids=["id-1", "id-2"])
+        store.add_documents.assert_called_once()
+
+    @patch("book_coach.ingest._ensure_persist_parent_writable")
+    @patch("book_coach.ingest.Chroma")
+    @patch("book_coach.ingest.OpenAIEmbeddings")
+    @patch("book_coach.ingest.chroma_persist_populated")
+    @patch("book_coach.ingest._load_split_one_pdf")
+    def test_append_dedupes_duplicate_input_paths(
+        self,
+        mock_load: MagicMock,
+        mock_populated: MagicMock,
+        _mock_emb: MagicMock,
+        _mock_chroma: MagicMock,
+        _mock_ensure: MagicMock,
+    ) -> None:
+        from book_coach.ingest import append_pdfs
+
+        mock_populated.return_value = False
+        mock_load.return_value = [
+            Document(page_content="a", metadata={"source": "/x/1.pdf", "page": 0}),
+        ]
+        with patch("book_coach.ingest.Path.exists", return_value=False):
+            stats = append_pdfs(
+                ["/fake/one.pdf", "/fake/one.pdf"],
+                persist_dir="chroma_test_fresh",
+            )
+
+        self.assertEqual(stats["chunks_added"], 1)
+        self.assertEqual(stats["files_processed"], 1)
+        self.assertEqual(stats["files_replaced"], 0)
+        self.assertEqual(stats["files_new"], 1)
+        mock_load.assert_called_once()
 
     @patch("book_coach.ingest.append_pdfs")
     @patch("book_coach.ingest.reset_knowledge_base")
@@ -92,7 +162,12 @@ class TestIngestModes(unittest.TestCase):
     ) -> None:
         from book_coach.ingest import ingest_pdf
 
-        mock_append.return_value = 42
+        mock_append.return_value = {
+            "chunks_added": 42,
+            "files_processed": 1,
+            "files_replaced": 0,
+            "files_new": 1,
+        }
         n = ingest_pdf("/fake/book.pdf", persist_dir="/tmp/x")
         mock_reset.assert_called_once_with("/tmp/x")
         mock_append.assert_called_once()

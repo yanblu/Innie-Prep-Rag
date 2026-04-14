@@ -1,6 +1,6 @@
 # Book Coach RAG (MVP)
 
-A small **retrieval-augmented** chat app: add **one or many PDFs** into a **shared Chroma index**, then chat with **OpenAI** using **top‑k** retrieved passages as context. **Streamlit** UI; **Chroma** on disk (`chroma_db/`); **LangChain** for ingest and the chat chain. New PDFs **append** to the index; **Reset knowledge base** wipes it. Answers are steered to cite **PDF filename and ~page**, not internal “chunk” ids.
+A small **retrieval-augmented** chat app: add **one or many PDFs** into a **shared Chroma index**, then chat with **OpenAI** using **top‑k** retrieved passages as context. **Streamlit** UI; **Chroma** on disk (`chroma_db/`); **LangChain** for ingest and the chat chain. New PDFs **append** to the index; **Reset knowledge base** wipes it. Answers are steered to cite **PDF filename and ~page**, not internal `chunk` ids.
 
 ---
 
@@ -25,7 +25,7 @@ A small **retrieval-augmented** chat app: add **one or many PDFs** into a **shar
 
 5. In the sidebar: upload **PDF(s)** and/or enter **one path per line** → **Add PDF(s) to index** (appends to the shared index). Use **Reset knowledge base** only when you want to delete `chroma_db/` and start over. Then chat.
 
-Re-indexing the **same** file again **duplicates** chunks (there is no per-file replace yet).
+Re-indexing the **same** file replaces that file's previous chunks (per-file dedupe).
 
 ---
 
@@ -58,7 +58,7 @@ Application code lives in the **`book_coach`** package; **Streamlit** stays at t
 └── .python-version
 ```
 
-**Generated / local (not in git usefully):** `chroma_db/` (vector index), `.venv/`, `.uploaded_pdfs/` (cached browser uploads).
+**Generated / local (not usefully tracked in git):** `chroma_db/` (vector index), `.venv/`, `.uploaded_pdfs/` (cached browser uploads).
 
 ### RAG architecture (current flow)
 
@@ -97,7 +97,7 @@ flowchart TB
 | Path | Role |
 |------|------|
 | `app.py` | Streamlit UI: multi-PDF upload / paths (one per line), **Add PDF(s) to index** (append), **Reset knowledge base**, chunking & retrieval tuning, guardrail, chat + retrieval trace. Closes the in-session Chroma client before disk writes to avoid SQLite lock/readonly errors. |
-| `book_coach/rag.py` | Optional **LLM search-query rewrite** when history exists; `similarity_search_with_score`; guardrail; CONTEXT headers use **`[PDF: filename — ~page N]`**; system prompt asks the model to cite **PDF + page** in replies (not “chunk” labels). |
+| `book_coach/rag.py` | Optional **LLM search-query rewrite** when history exists; `similarity_search_with_score`; guardrail; CONTEXT headers use **`[PDF: filename — ~page N]`**; system prompt asks the model to cite **PDF + page** in replies (not `chunk` labels). |
 | `book_coach/ingest.py` | **Append** PDFs to the shared index (or create it); **`reset_knowledge_base`** deletes `chroma_db/`; each chunk gets **`source`** = resolved path (basename shown in UI/trace). |
 | `book_coach/chroma_lifecycle.py` | **`close_langchain_chroma_client`**, **`ensure_chroma_tree_writable`** — used before append/reset and by ingest. |
 | `book_coach/vectorstore_loader.py` | Opens persisted Chroma (fixed **`langchain`** collection name) for the live app. |
@@ -113,7 +113,7 @@ flowchart TB
 
 - **Embeddings:** `text-embedding-3-small` (OpenAI).
 - **Chat:** `gpt-4o-mini` (OpenAI).
-- **Retrieval:** default top‑**k** = 5 (tunable in UI); retrieved passages are passed to the model as **`[PDF: filename.pdf — ~page N]`** blocks so citations in the answer refer to the **source PDF and page**, not internal chunk ids.
+- **Retrieval:** default top‑**k** = 5 (tunable in UI); retrieved passages are passed to the model as **`[PDF: filename.pdf — ~page N]`** blocks so citations in the answer refer to the **source PDF and page**, not internal `chunk` ids.
 
 ---
 
@@ -140,7 +140,7 @@ Two complementary JSON sets: **single-turn** (does your index answer standalone 
 
 | Field | Required | Description |
 |--------|----------|-------------|
-| `id` | optional | Short label in logs (e.g. `q1`). |
+| `id` | optional | Short label in logs (e.g., `q1`). |
 | `question` | **yes** | Exact string passed to Chroma as the **only** search query. |
 | `gold_pages` | **yes** | Non-empty list of integers = PDF viewer page numbers where the answer should live. |
 
@@ -177,7 +177,7 @@ python eval/run_eval.py -k 8 --persist chroma_db
 | `messages` | **yes** | Ordered list of `{ "role": "user" \| "assistant", "content": "..." }`. **Last** item **must** be `user` = the turn you score. Everything before = **chat history** passed into `build_retrieval_query`. |
 | `gold_pages` | **yes** | Pages that should be retrieved for the **final user** message (not for earlier turns). |
 
-**Assistant turns:** Optional but recommended. They **mimic** what the bot might say after the first user line so the transcript looks like a real thread and the rewriter has concrete phrases (e.g. “estimation drills”, “case interviews”) to expand pronouns. They do **not** need to match your app’s exact wording.
+**Assistant turns:** Optional but recommended. They **mimic** what the bot might say after the first user line so the transcript looks like a real thread and the rewriter has concrete phrases (e.g., “estimation drills”, “case interviews”) to expand pronouns. They do **not** need to match your app’s exact wording.
 
 **Example:**
 
@@ -216,10 +216,10 @@ The sample file reuses **page ranges** aligned to the bundled `questions.json` t
 
 ### 3. Metrics (both runners)
 
-1. **Hit / MISS (per row)**  
+1. **HIT / MISS (per row)**  
    - **HIT:** At least one top‑**k** chunk has `page` ∈ `gold_pages` (after human→metadata mapping).  
-   - **MISS:** otherwise.  
-   - **`first_gold_rank`:** rank 1…k of the first matching chunk, or “-” / omitted if miss.
+   - **MISS:** Otherwise.  
+   - **`first_gold_rank`:** rank 1…k of the first matching chunk, or “-” / omitted if MISS.
 
 2. **Distance `d`** (normal eval MISS lines only)  
    Chroma distance query→chunk (often **L2**); **lower ≈ closer**. Not a probability.
@@ -233,7 +233,7 @@ The sample file reuses **page ranges** aligned to the bundled `questions.json` t
 
 **Requirements:** `OPENAI_API_KEY` in `.env`, and `chroma_db/` built from the material you are evaluating.
 
-**Multi-PDF index:** `gold_pages` alone does not distinguish which PDF a page belongs to. The bundled eval JSON assumes a **single** main book (or you re-verify pages per document). For strict multi-source scoring you would extend the eval schema (e.g. gold `source` / filename).
+**Multi-PDF index:** `gold_pages` alone does not distinguish which PDF a page belongs to. The bundled eval JSON assumes a **single** main book (or you re-verify pages per document). For strict multi-source scoring you would extend the eval schema (e.g., gold `source` / filename).
 
 ---
 
@@ -248,7 +248,7 @@ The sample file reuses **page ranges** aligned to the bundled `questions.json` t
 | **2026-04-12** | **Package layout:** RAG logic moved into `book_coach/`; root `embed_config.py`, `ingest.py`, `rag.py`, `vectorstore_loader.py`, `warn_filters.py` removed in favor of the package. `pyproject.toml` declares the package for optional `pip install -e .`. |
 | **2026-04-12** | README: evaluation section restructured — comparison table, field tables, and JSON examples for **normal** vs **conversation** eval. |
 | **2026-04-11** | **Shared multi-PDF index:** append vs **Reset knowledge base**; `source` metadata; `.uploaded_pdfs/`; **`chroma_lifecycle`** closes Chroma before writes + optional chmod on `chroma_db/` (fixes common SQLite readonly/lock on second PDF). |
-| **2026-04-11** | **Answer citations:** CONTEXT uses PDF filename + ~page headers; system prompt instructs the model **not** to cite “chunk” ids in user-facing replies. |
+| **2026-04-11** | **Answer citations:** CONTEXT uses PDF filename + ~page headers; system prompt instructs the model **not** to cite `chunk` ids in user-facing replies. |
 | **2026-04-11** | **Tests:** `tests/test_ingest.py` (`python -m unittest discover -s tests`). |
 
 ---

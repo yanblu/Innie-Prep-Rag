@@ -95,7 +95,7 @@ with st.sidebar:
         "Upload PDF(s)",
         type=["pdf"],
         accept_multiple_files=True,
-        help="Each run of “Add to index” appends chunks. Same file added twice duplicates chunks.",
+        help="Each run of “Add to index” appends chunks. Re-adding the same file replaces that file's old chunks.",
     )
     path_input = st.text_area(
         "Or paths on disk (one per line)",
@@ -136,13 +136,19 @@ with st.sidebar:
             _release_chroma_for_disk_write()
             with st.spinner("Indexing…"):
                 try:
-                    n = append_pdfs(
+                    stats = append_pdfs(
                         pdf_paths,
                         persist_dir=persist_dir,
                         chunk_size=int(chunk_size),
                         chunk_overlap=int(chunk_overlap),
                     )
-                    st.success(f"Added **{n}** chunks to the shared index.")
+                    st.success(
+                        "Indexed "
+                        f"**{stats['files_processed']}** file(s): "
+                        f"**{stats['files_new']}** new, "
+                        f"**{stats['files_replaced']}** replaced; "
+                        f"added **{stats['chunks_added']}** chunks."
+                    )
                     st.session_state.vectorstore = load_vectorstore(persist_dir)
                     st.session_state._vectorstore_resolved = True
                 except Exception as e:
