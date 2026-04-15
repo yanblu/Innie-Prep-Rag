@@ -22,6 +22,7 @@ from book_coach.config import (
     DEFAULT_CHUNK_SIZE,
     EMBEDDING_MODEL,
 )
+from book_coach.hybrid_retrieval import rebuild_sparse_index_from_vectorstore
 
 load_dotenv()
 
@@ -143,15 +144,17 @@ def append_pdfs(
                 store.delete(ids=list(ids))
                 files_replaced += 1
         store.add_documents(all_splits)
+        rebuild_sparse_index_from_vectorstore(store, str(p))
     else:
         if p.exists():
             _rmtree_chroma(p)
-        Chroma.from_documents(
+        store = Chroma.from_documents(
             documents=all_splits,
             embedding=embeddings,
             persist_directory=str(p),
             collection_name=collection,
         )
+        rebuild_sparse_index_from_vectorstore(store, str(p))
 
     return {
         "chunks_added": len(all_splits),

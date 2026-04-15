@@ -48,7 +48,7 @@ for p in (EVAL_DIR, ROOT):
 
 load_dotenv(ROOT / ".env")
 
-from chroma_retrieval import first_gold_rank, human_pages_to_meta, query_chroma  # noqa: E402
+from chroma_retrieval import first_gold_rank, human_pages_to_meta, query_ranked  # noqa: E402
 
 
 def main() -> None:
@@ -69,6 +69,12 @@ def main() -> None:
         type=int,
         default=5,
         help="Top-k chunks per question (same idea as app sidebar).",
+    )
+    parser.add_argument(
+        "--retrieval-mode",
+        choices=["dense", "hybrid"],
+        default="dense",
+        help="Retrieval mode used for eval queries.",
     )
     args = parser.parse_args()
 
@@ -113,7 +119,7 @@ def main() -> None:
             raise SystemExit(f"Invalid row (need question + gold_pages): {row!r}")
         gold = human_pages_to_meta(gh)
 
-        ranked = query_chroma(persist, str(q), k=k)
+        ranked = query_ranked(persist, str(q), k=k, retrieval_mode=args.retrieval_mode)
         first_rank = first_gold_rank(ranked, gold)
 
         hit = first_rank is not None
@@ -124,7 +130,10 @@ def main() -> None:
         status = "HIT" if hit else "MISS"
         rank_s = str(first_rank) if first_rank is not None else "-"
         q_short = (q[:70] + "…") if len(q) > 70 else q
-        print(f"[{status}] id={rid} first_gold_rank={rank_s}  {q_short}")
+        print(
+            f"[{status}] id={rid} first_gold_rank={rank_s} "
+            f"mode={args.retrieval_mode}  {q_short}"
+        )
 
         if not hit and ranked:
             tops = []
@@ -133,7 +142,8 @@ def main() -> None:
                 if p is None:
                     tops.append("?")
                 else:
-                    tops.append(f"p~{int(p) + 1}(d={float(dist):.3f})")
+                    label = "rrf" if args.retrieval_mode == "hybrid" else "d"
+                    tops.append(f"p~{int(p) + 1}({label}={float(dist):.3f})")
             print(f"        top chunks (human page ~): {', '.join(tops)}")
 
     n = len(hits)

@@ -185,6 +185,12 @@ with st.sidebar:
         step=1,
         help="How many chunks to concatenate into context (no re-index needed).",
     )
+    retrieval_mode = st.selectbox(
+        "Retrieval mode",
+        options=["dense", "hybrid"],
+        index=0,
+        help="Dense uses embeddings only. Hybrid uses BM25 (keyword) + dense with RRF fusion.",
+    )
     use_query_rewrite = st.checkbox(
         "Conversation-aware retrieval",
         value=True,
@@ -248,13 +254,29 @@ else:
         elif sq:
             st.markdown("**Search query used for embedding**")
             st.code(sq, language=None)
-        st.caption(
-            f"Top **{n}** chunks by **embedding similarity** to that search query "
-            "(Chroma). Rank **#1** is closest; **distance** is Chroma’s score "
-            "(lower usually means more similar for L2 distance)."
-        )
+        mode = "dense"
+        if isinstance(data, dict):
+            mode = str(data.get("retrieval_mode", "dense"))
+        if mode == "hybrid":
+            st.caption(
+                f"Top **{n}** chunks by **hybrid fusion** (dense + BM25 via RRF). "
+                "Higher RRF score is better."
+            )
+        else:
+            st.caption(
+                f"Top **{n}** chunks by **embedding similarity** to that search query "
+                "(Chroma). Rank **#1** is closest; **distance** is Chroma’s score "
+                "(lower usually means more similar for L2 distance)."
+            )
         for row in chunks:
-            label = f"#{row['rank']} — distance `{row['distance']:.4f}`"
+            if mode == "hybrid":
+                label = f"#{row['rank']} — RRF `{float(row.get('rrf_score', 0.0)):.4f}`"
+                if row.get("dense_rank") is not None:
+                    label += f" — dense_rank `{int(row['dense_rank'])}`"
+                if row.get("sparse_rank") is not None:
+                    label += f" — sparse_rank `{int(row['sparse_rank'])}`"
+            else:
+                label = f"#{row['rank']} — distance `{row['distance']:.4f}`"
             src = row.get("source")
             if src:
                 label += f" — `{Path(str(src)).name}`"
@@ -290,6 +312,7 @@ else:
                     retrieval_k=int(retrieval_k),
                     guardrail_max_distance=gmax,
                     use_query_rewrite=use_query_rewrite,
+                    retrieval_mode=str(retrieval_mode),
                 )
             except Exception as e:
                 reply = f"Error: {e}"
