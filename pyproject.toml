@@ -6,7 +6,8 @@ build-backend = "setuptools.build_meta"
 name = "book-coach-rag"
 version = "0.1.0"
 description = "Minimal PDF RAG + Streamlit book coach"
-requires-python = ">=3.10"
+requires-python = ">=3.12,<3.13"
 
 [tool.setuptools.packages.find]
 where = ["."]
+include = ["book_coach*"]

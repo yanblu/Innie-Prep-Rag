@@ -1,0 +1,128 @@
+%PDF-1.3
+%‚„œ”
+1 0 obj
+<<
+/Producer (pypdf)
+/Title (Interview preparation guide)
+/Author (Book Coach RAG demo)
+>>
+endobj
+2 0 obj
+<<
+/Type /Pages
+/Count 2
+/Kids [ 5 0 R 7 0 R ]
+>>
+endobj
+3 0 obj
+<<
+/Type /Catalog
+/Pages 2 0 R
+>>
+endobj
+4 0 obj
+<<
+/Type /Font
+/Subtype /Type1
+/BaseFont /Helvetica
+>>
+endobj
+5 0 obj
+<<
+/Type /Page
+/Resources <<
+/Font <<
+/F1 4 0 R
+>>
+>>
+/MediaBox [ 0.0 0.0 612 792 ]
+/Parent 2 0 R
+/Contents 6 0 R
+>>
+endobj
+6 0 obj
+<<
+/Length 1618
+>>
+stream
+BT /F1 10 Tf 52 748 Td (BOOK COACH / DEMO GUIDE) Tj ET
+BT /F1 18 Tf 52 712 Td (Estimation questions: a four-step method) Tj ET
+BT /F1 13 Tf 52 674 Td (1. Clarify the scope) Tj ET
+BT /F1 11 Tf 52 651 Td (Restate what you are estimating, the unit, the time period, and the boundaries. Ask) Tj ET
+BT /F1 11 Tf 52 635 Td (whether the interviewer wants a typical day or a peak day.) Tj ET
+BT /F1 13 Tf 52 596 Td (2. Break the estimate into drivers) Tj ET
+BT /F1 11 Tf 52 573 Td (Express the total as a few quantities you can reason about. For daily cafe drink) Tj ET
+BT /F1 11 Tf 52 557 Td (sales, separate busy hours from quieter hours and estimate drinks sold per hour in) Tj ET
+BT /F1 11 Tf 52 541 Td (each period.) Tj ET
+BT /F1 13 Tf 52 502 Td (3. State assumptions and calculate) Tj ET
+BT /F1 11 Tf 52 479 Td (Explain each assumption before multiplying or adding. Use round numbers so the) Tj ET
+BT /F1 11 Tf 52 463 Td (interviewer can follow the arithmetic. Keep units visible.) Tj ET
+BT /F1 13 Tf 52 424 Td (4. Check plausibility) Tj ET
+BT /F1 11 Tf 52 401 Td (Compare the result with a capacity limit or a second rough estimate. Identify the) Tj ET
+BT /F1 11 Tf 52 385 Td (assumption that could change the answer most and explain how you would validate it.) Tj ET
+BT /F1 13 Tf 52 346 Td (A useful closing sentence) Tj ET
+BT /F1 11 Tf 52 323 Td (My estimate is a starting point, not a measured fact. I would validate the busiest-) Tj ET
+BT /F1 11 Tf 52 307 Td (hour sales rate first because it has the greatest effect on this example.) Tj ET
+BT /F1 9 Tf 52 32 Td (Original fictional demo material | PDF page 1) Tj ET
+endstream
+endobj
+7 0 obj
+<<
+/Type /Page
+/Resources <<
+/Font <<
+/F1 4 0 R
+>>
+>>
+/MediaBox [ 0.0 0.0 612 792 ]
+/Parent 2 0 R
+/Contents 8 0 R
+>>
+endobj
+8 0 obj
+<<
+/Length 1702
+>>
+stream
+BT /F1 10 Tf 52 748 Td (BOOK COACH / DEMO GUIDE) Tj ET
+BT /F1 18 Tf 52 712 Td (Worked example: daily cafe drink sales) Tj ET
+BT /F1 13 Tf 52 674 Td (Question and scope) Tj ET
+BT /F1 11 Tf 52 651 Td (How many drinks does one fictional cafe sell on a typical weekday? Count drinks, not) Tj ET
+BT /F1 11 Tf 52 635 Td (customers. Assume the cafe is open for eight hours. These numbers are invented for) Tj ET
+BT /F1 11 Tf 52 619 Td (demonstration.) Tj ET
+BT /F1 13 Tf 52 580 Td (Drivers and assumptions) Tj ET
+BT /F1 11 Tf 52 557 Td (Assume two busy hours at 120 drinks per hour and six quieter hours at 40 drinks per) Tj ET
+BT /F1 11 Tf 52 541 Td (hour. The daily total is the busy-period sales plus the quieter-period sales.) Tj ET
+BT /F1 13 Tf 52 502 Td (Calculation) Tj ET
+BT /F1 11 Tf 52 479 Td (Busy period: 2 hours x 120 drinks/hour = 240 drinks. Quieter period: 6 hours x 40) Tj ET
+BT /F1 11 Tf 52 463 Td (drinks/hour = 240 drinks. Total: 240 + 240 = 480 drinks per day.) Tj ET
+BT /F1 13 Tf 52 424 Td (Plausibility and sensitivity) Tj ET
+BT /F1 11 Tf 52 401 Td (Assume a capacity of 150 drinks per hour. The busy-hour estimate of 120 is below that) Tj ET
+BT /F1 11 Tf 52 385 Td (capacity. If busy-hour sales range from 90 to 150, the daily estimate ranges from 420) Tj ET
+BT /F1 11 Tf 52 369 Td (to 540 drinks, holding quieter sales fixed.) Tj ET
+BT /F1 13 Tf 52 330 Td (What to validate) Tj ET
+BT /F1 11 Tf 52 307 Td (Ask for point-of-sale counts by hour to check the assumed busy-hour sales rate. This) Tj ET
+BT /F1 11 Tf 52 291 Td (example illustrates a reasoning process; it is not market research or a forecast.) Tj ET
+BT /F1 9 Tf 52 32 Td (Original fictional demo material | PDF page 2) Tj ET
+endstream
+endobj
+xref
+0 9
+0000000000 65535 f 
+0000000015 00000 n 
+0000000121 00000 n 
+0000000186 00000 n 
+0000000235 00000 n 
+0000000305 00000 n 
+0000000437 00000 n 
+0000002107 00000 n 
+0000002239 00000 n 
+trailer
+<<
+/Size 9
+/Root 3 0 R
+/Info 1 0 R
+>>
+startxref
+3993
+%%EOF

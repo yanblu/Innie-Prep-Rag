@@ -35,7 +35,7 @@ for p in (EVAL_DIR, ROOT):
 
 load_dotenv(ROOT / ".env")
 
-from chroma_retrieval import first_gold_rank, human_pages_to_meta, query_chroma  # noqa: E402
+from chroma_retrieval import first_gold_rank, human_pages_to_meta, query_ranked  # noqa: E402
 from book_coach.rag import build_retrieval_query  # noqa: E402
 
 
@@ -52,6 +52,12 @@ def main() -> None:
         "--no-rewrite",
         action="store_true",
         help="Skip rewrite path; only print baseline scores.",
+    )
+    parser.add_argument(
+        "--retrieval-mode",
+        choices=["dense", "hybrid"],
+        default="dense",
+        help="Retrieval mode used for baseline/rewrite queries.",
     )
     args = parser.parse_args()
 
@@ -85,7 +91,12 @@ def main() -> None:
         history = msgs[:-1]
         gold = human_pages_to_meta(gh)
 
-        ranked_base = query_chroma(persist, latest, k=k)
+        ranked_base = query_ranked(
+            persist,
+            latest,
+            k=k,
+            retrieval_mode=args.retrieval_mode,
+        )
         rb = first_gold_rank(ranked_base, gold)
         base_hits.append(rb is not None)
         base_mrr.append(1.0 / rb if rb is not None else 0.0)
@@ -95,14 +106,22 @@ def main() -> None:
 
         if not args.no_rewrite:
             rq, used = build_retrieval_query(history, latest, use_query_rewrite=True)
-            ranked_rew = query_chroma(persist, rq, k=k)
+            ranked_rew = query_ranked(
+                persist,
+                rq,
+                k=k,
+                retrieval_mode=args.retrieval_mode,
+            )
             rr = first_gold_rank(ranked_rew, gold)
             rew_hits.append(rr is not None)
             rew_mrr.append(1.0 / rr if rr is not None else 0.0)
-            print(f"  baseline: rank={rb or '-'}  |  rewrite: rank={rr or '-'}")
+            print(
+                f"  mode={args.retrieval_mode} "
+                f"baseline: rank={rb or '-'}  |  rewrite: rank={rr or '-'}"
+            )
             print(f"  rewrite query: {rq[:120]}{'…' if len(rq) > 120 else ''}")
         else:
-            print(f"  baseline: rank={rb or '-'}")
+            print(f"  mode={args.retrieval_mode} baseline: rank={rb or '-'}")
 
         print()
 
