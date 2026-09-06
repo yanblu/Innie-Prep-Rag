@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 
 from book_coach.config import DEFAULT_CHUNK_OVERLAP, DEFAULT_CHUNK_SIZE
 from book_coach.ingest import chroma_persist_populated
+from book_coach.upload_cache import cache_uploaded_pdfs
 
 load_dotenv()
 
@@ -38,12 +39,7 @@ def _gather_pdf_paths(
     paths: list[str] = []
     errors: list[str] = []
     if uploaded_list:
-        UPLOAD_DIR.mkdir(exist_ok=True)
-        for i, uf in enumerate(uploaded_list):
-            name = Path(uf.name).name
-            dest = UPLOAD_DIR / f"{i}_{name}"
-            dest.write_bytes(uf.getbuffer())
-            paths.append(str(dest.resolve()))
+        paths.extend(cache_uploaded_pdfs(uploaded_list, UPLOAD_DIR))
     for line in path_lines.splitlines():
         line = line.strip()
         if not line:

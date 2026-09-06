@@ -128,6 +128,40 @@ class TestIngestModes(unittest.TestCase):
         store.delete.assert_called_once_with(ids=["id-1", "id-2"])
         store.add_documents.assert_called_once()
 
+        calls = [call[0] for call in store.method_calls]
+        self.assertLess(calls.index("add_documents"), calls.index("delete"))
+
+    @patch("book_coach.ingest._ensure_persist_parent_writable")
+    @patch("book_coach.ingest.Chroma")
+    @patch("book_coach.ingest.OpenAIEmbeddings")
+    @patch("book_coach.ingest.chroma_persist_populated")
+    @patch("book_coach.ingest._load_split_one_pdf")
+    @patch("book_coach.ingest.rebuild_sparse_index_from_vectorstore")
+    def test_failed_replacement_does_not_delete_existing_chunks(
+        self,
+        _mock_sparse: MagicMock,
+        mock_load: MagicMock,
+        mock_populated: MagicMock,
+        _mock_emb: MagicMock,
+        mock_chroma: MagicMock,
+        _mock_ensure: MagicMock,
+    ) -> None:
+        from book_coach.ingest import append_pdfs
+
+        mock_populated.return_value = True
+        mock_load.return_value = [Document(page_content="replacement", metadata={})]
+        store = MagicMock()
+        store.get.return_value = {"ids": ["old-1", "old-2"]}
+        store.add_documents.side_effect = RuntimeError("embedding request failed")
+        mock_chroma.return_value = store
+
+        with self.assertRaisesRegex(RuntimeError, "embedding request failed"):
+            append_pdfs(["/fake/two.pdf"], persist_dir="chroma_test_append")
+
+        deleted_ids = [call.kwargs["ids"] for call in store.delete.call_args_list]
+        self.assertTrue(deleted_ids)
+        self.assertNotIn(["old-1", "old-2"], deleted_ids)
+
     @patch("book_coach.ingest._ensure_persist_parent_writable")
     @patch("book_coach.ingest.Chroma")
     @patch("book_coach.ingest.OpenAIEmbeddings")

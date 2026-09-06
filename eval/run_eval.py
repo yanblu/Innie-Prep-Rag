@@ -17,7 +17,7 @@ Usage (from project root, OPENAI_API_KEY in .env, index built):
   .venv/bin/python eval/run_eval.py
   .venv/bin/python eval/run_eval.py -k 8 --persist chroma_db
 
-Python: 3.10+ including 3.14.x (see ../pyproject.toml). Use `.venv/bin/python` if deps
+Python: 3.12 (tested on 3.12.13; see ../pyproject.toml). Use `.venv/bin/python` if deps
 are not installed globally.
 """
 

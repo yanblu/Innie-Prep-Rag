@@ -4,6 +4,7 @@ import book_coach.warn_filters  # noqa: F401
 
 import os
 import shutil
+from uuid import uuid4
 from collections.abc import Sequence
 from pathlib import Path
 from typing import TypedDict
@@ -109,8 +110,9 @@ def append_pdfs(
 
     Returns ingest stats (chunks and file replacement/new counts).
 
-    Per-file dedupe behavior: if a source PDF already exists in the shared index, its previous
-    chunks are deleted before re-indexing that same file.
+    Per-file dedupe behavior: if a source PDF already exists in the shared index, replacement
+    chunks are added before the old chunks are removed. A failed insert therefore preserves the
+    prior indexed source rather than deleting it first.
     """
     resolved_paths = [str(Path(p).expanduser().resolve()) for p in pdf_paths if str(p).strip()]
     # Keep first-seen order and avoid duplicate work within a single submit.
@@ -126,6 +128,8 @@ def append_pdfs(
     all_splits: list[Document] = []
     for pdf_path in paths:
         all_splits.extend(_load_split_one_pdf(pdf_path, chunk_size, chunk_overlap))
+    if not all_splits:
+        raise ValueError("No extractable text was found in the supplied PDF(s).")
 
     embeddings = OpenAIEmbeddings(model=EMBEDDING_MODEL)
     collection = CHROMA_LANGCHAIN_COLLECTION
@@ -137,13 +141,26 @@ def append_pdfs(
             embedding_function=embeddings,
             collection_name=collection,
         )
+        old_ids: list[str] = []
         for source in paths:
             existing = store.get(where={"source": source}, include=[])
             ids = existing.get("ids", []) if isinstance(existing, dict) else []
             if ids:
-                store.delete(ids=list(ids))
+                old_ids.extend(str(item) for item in ids)
                 files_replaced += 1
-        store.add_documents(all_splits)
+        new_ids = [str(uuid4()) for _ in all_splits]
+        try:
+            store.add_documents(all_splits, ids=new_ids)
+        except Exception:
+            # Best-effort cleanup for an implementation that partially wrote before raising.
+            # These IDs are unique to this attempt, so existing chunks remain untouched.
+            try:
+                store.delete(ids=new_ids)
+            except Exception:
+                pass
+            raise
+        if old_ids:
+            store.delete(ids=old_ids)
         rebuild_sparse_index_from_vectorstore(store, str(p))
     else:
         if p.exists():
